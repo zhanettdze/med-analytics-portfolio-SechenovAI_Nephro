@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.venv/
+env/
+.env/
+
+# Data (не загружаем большие файлы на GitHub)
+data/*.nii
+data/*.nii.gz
+data/*.dcm
+data/*.dicom
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
