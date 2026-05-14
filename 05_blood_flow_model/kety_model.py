@@ -1,81 +1,53 @@
 import numpy as np
-from scipy.optimize import curve_fit
+import matplotlib.pyplot as plt
 
-def kety_model(t, blood_flow, extraction_fraction, delay=0):
-    """
-    Kety perfusion model.
-    
-    Parameters:
-    - blood_flow: blood flow in ml/100g/min
-    - extraction_fraction: extraction fraction (0-1)
-    - delay: time delay in seconds
-    
-    Returns:
-    - concentration curve over time
-    """
-    t_shifted = t - delay
-    mask = t_shifted > 0
-    result = np.zeros_like(t, dtype=np.float64)
-    result[mask] = blood_flow * extraction_fraction * (1 - np.exp(-blood_flow * t_shifted[mask] / 100))
-    return result
+def kety_model(time, Fp, Ps, ve=0.2):
+    kep = Ps / ve
+    E = 1 - np.exp(-Ps / max(Fp, 0.1))
+    Ktrans = Fp * E
+    Ct = Ktrans * np.exp(-kep * time)
+    Ct = Ct / np.max(Ct) if np.max(Ct) > 0 else Ct
+    return Ct
 
-def fit_kety_model(time_series, concentration, p0=None):
-    """
-    Fit Kety model to time-concentration curve.
+def plot_kety_curves():
+    time = np.linspace(0, 5, 100)
     
-    Parameters:
-    - time_series: time points in seconds
-    - concentration: contrast concentration over time
-    - p0: initial guess [blood_flow, extraction_fraction, delay]
+    params = [
+        {'Fp': 50,  'Ps': 10,  'color': 'blue',   'linestyle': '-',  'marker': 'o', 'label': 'Low flow (50)'},
+        {'Fp': 150, 'Ps': 30,  'color': 'green',  'linestyle': '--', 'marker': 's', 'label': 'Medium (150)'},
+        {'Fp': 300, 'Ps': 60,  'color': 'orange', 'linestyle': '-.', 'marker': '^', 'label': 'High (300)'},
+        {'Fp': 500, 'Ps': 100, 'color': 'red',    'linestyle': ':',  'marker': 'D', 'label': 'Very high (500)'}
+    ]
     
-    Returns:
-    - fitted parameters and covariance
-    """
-    if p0 is None:
-        p0 = [50.0, 0.5, 5.0]
+    plt.figure(figsize=(12, 7))
     
-    try:
-        params, cov = curve_fit(kety_model, time_series, concentration, p0=p0, maxfev=5000)
-        return params, cov
-    except Exception as e:
-        print(f"Fitting failed: {e}")
-        return None, None
-
-def calculate_perfusion(ct_curve, aif_curve, time_resolution=1.0):
-    """
-    Calculate perfusion using deconvolution method.
+    for p in params:
+        Ct = kety_model(time, Fp=p['Fp'], Ps=p['Ps'])
+        plt.plot(time, Ct, color=p['color'], linestyle=p['linestyle'], 
+                linewidth=2, marker=p['marker'], markersize=4, markevery=15, label=p['label'])
     
-    Parameters:
-    - ct_curve: tissue concentration curve
-    - aif_curve: arterial input function
-    - time_resolution: time between measurements in seconds
+    plt.xlabel('Time (minutes)', fontsize=12)
+    plt.ylabel('Normalized Concentration', fontsize=12)
+    plt.title('Kety Model: Contrast Agent Washout', fontsize=14)
+    plt.legend(loc='upper right', fontsize=10)
+    plt.grid(True, alpha=0.3, linestyle='--')
+    plt.ylim(-0.05, 1.05)
+    plt.xlim(0, 5)
     
-    Returns:
-    - perfusion map
-    """
-    from scipy.fft import fft, ifft
+    for spine in plt.gca().spines.values():
+        spine.set_linewidth(1.5)
     
-    n = len(ct_curve)
-    ct_fft = fft(ct_curve)
-    aif_fft = fft(aif_curve)
-    
-    epsilon = 1e-3
-    h_fft = ct_fft / (aif_fft + epsilon * np.max(np.abs(aif_fft)))
-    impulse_response = np.real(ifft(h_fft))
-    
-    perfusion = np.max(impulse_response[:n//2])
-    return perfusion
+    plt.tight_layout()
+    plt.savefig('kety_model_curves.png', dpi=200, bbox_inches='tight')
+    print("Saved: kety_model_curves.png")
+    print("\n" + "="*50)
+    print("KETY MODEL RESULTS")
+    print("="*50)
+    for p in params:
+        Ct_end = kety_model(np.array([5]), Fp=p['Fp'], Ps=p['Ps'])[0]
+        print(f"  {p['label']:20s}: end concentration = {Ct_end:.3f}")
+    print("="*50)
+    plt.show()
 
 if __name__ == "__main__":
-    t = np.linspace(0, 120, 61)
-    
-    true_params = [60.0, 0.6, 10.0]
-    concentration = kety_model(t, *true_params)
-    
-    fitted_params, _ = fit_kety_model(t, concentration)
-    
-    print("KETY MODEL DEMONSTRATION")
-    print("=" * 40)
-    print(f"True parameters: BF={true_params[0]:.1f}, E={true_params[1]:.2f}, delay={true_params[2]:.1f}")
-    if fitted_params is not None:
-        print(f"Fitted parameters: BF={fitted_params[0]:.1f}, E={fitted_params[1]:.2f}, delay={fitted_params[2]:.1f}")
+    plot_kety_curves()
