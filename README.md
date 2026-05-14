@@ -16,7 +16,7 @@
 - **Наложение** — маска поверх КТ
 
 ![Визуализация KiTS19](kits19_visualization.png)
-![Contour](kidney_contour.png) | ![Flow](flow_on_kidney.png) 
+
 ---
 
 ## Структура репозитория
